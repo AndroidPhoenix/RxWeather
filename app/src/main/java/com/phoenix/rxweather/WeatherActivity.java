@@ -6,26 +6,17 @@ import android.support.annotation.Nullable;
 import android.util.Log;
 import android.widget.TextView;
 
-import com.google.gson.Gson;
-import com.google.gson.reflect.TypeToken;
 import com.phoenix.rxweather.constant.AppConstant;
 import com.phoenix.rxweather.data.WeatherBean;
 import com.phoenix.rxweather.net.ApiWeather;
-import com.phoenix.rxweather.util.OKHttpManager;
 
-import java.io.IOException;
-import java.lang.reflect.Type;
-
-import okhttp3.Request;
-import okhttp3.ResponseBody;
-import retrofit2.Call;
-import retrofit2.Callback;
-import retrofit2.Response;
 import retrofit2.Retrofit;
 import retrofit2.adapter.rxjava.RxJavaCallAdapterFactory;
 import retrofit2.converter.gson.GsonConverterFactory;
+import rx.Observable;
 import rx.Observer;
 import rx.android.schedulers.AndroidSchedulers;
+import rx.functions.Func1;
 import rx.schedulers.Schedulers;
 
 public class WeatherActivity extends Activity {
@@ -47,9 +38,8 @@ public class WeatherActivity extends Activity {
     @Override
     protected void onResume() {
         super.onResume();
-        getWeatherRetrofitRx();
+        getMultiWeatherFlatmap();
     }
-
 
     private void getWeatherRetrofitRx() {
         Retrofit retrofit = new Retrofit.Builder()
@@ -61,6 +51,48 @@ public class WeatherActivity extends Activity {
         ApiWeather apiWeather = retrofit.create(ApiWeather.class);
         apiWeather.getWeather("Beijing", AppConstant.APP_KEY)
                 .subscribeOn(Schedulers.io())
+                .observeOn(AndroidSchedulers.mainThread())
+                .map(new Func1<WeatherBean, String>() {
+                    @Override
+                    public String call(WeatherBean bean) {
+                        return String.valueOf(bean.getMain().getTemp());
+                    }
+                })
+                .subscribe(new Observer<String>() {
+                    @Override
+                    public void onCompleted() {
+
+                    }
+
+                    @Override
+                    public void onError(Throwable e) {
+
+                    }
+
+                    @Override
+                    public void onNext(String s) {
+                        mTmp.setText(String.valueOf(s);
+                    }
+                });
+
+    }
+
+    private void getMultiWeatherFlatmap() {
+        String[] cities = new String[]{"Beijing", "Shanghai", "Guangzhou"};
+        final Retrofit retrofit = new Retrofit.Builder()
+                .addCallAdapterFactory(RxJavaCallAdapterFactory.create())
+                .addConverterFactory(GsonConverterFactory.create())
+                .baseUrl(AppConstant.ULR)
+                .build();
+
+        Observable.from(cities)
+                .flatMap(new Func1<String, Observable<WeatherBean>>() {
+                    @Override
+                    public Observable<WeatherBean> call(String s) {
+                        ApiWeather apiWeather = retrofit.create(ApiWeather.class);
+                        return apiWeather.getWeather(s, AppConstant.APP_KEY);
+                    }
+                }).subscribeOn(Schedulers.io())
                 .observeOn(AndroidSchedulers.mainThread())
                 .subscribe(new Observer<WeatherBean>() {
                     @Override
@@ -75,8 +107,8 @@ public class WeatherActivity extends Activity {
 
                     @Override
                     public void onNext(WeatherBean bean) {
-                        Log.d(TAG, "onNext: ");
-                        invalidateWeather(bean);
+                        String temp = String.valueOf(bean.getMain().getTemp());
+                        Log.d(TAG, "onNext: " + temp);
                     }
                 });
     }
@@ -176,7 +208,7 @@ public class WeatherActivity extends Activity {
     }
     */
 
-
+    /*
     private void getWeatherJava() {
         final Request request = new Request.Builder().url(getWeatherUrl()).build();
         okhttp3.Call call = OKHttpManager.getInstance().getClient().newCall(request);
@@ -209,6 +241,7 @@ public class WeatherActivity extends Activity {
             }
         });
     }
+    */
 
 
     /**
